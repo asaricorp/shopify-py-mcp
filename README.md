@@ -1,62 +1,62 @@
 # Shopify Python MCP Server
 
-Shopify APIと連携するMCPサーバーです。このサーバーを使用することで、Claude DesktopからShopifyの商品情報を取得・操作することができます。
+An MCP server that integrates with the Shopify API. This server allows you to retrieve and manipulate Shopify product information from Claude Desktop.
 
-## 機能
+## Features
 
-### ツール
+### Tools
 
-このサーバーは以下のツールを提供します：
+This server provides the following tools:
 
-1. **list_products**: 商品一覧を取得する
-   - `limit`: 取得する商品数（最大250、デフォルト値は50）
+1. **list_products**: Get product list
+   - `limit`: Number of products to retrieve (maximum 250, default is 50)
 
-2. **get_product**: 商品の詳細情報を取得する
-   - `product_id`: 商品ID（必須）
+2. **get_product**: Get detailed product information
+   - `product_id`: Product ID (required)
 
-3. **create_product**: 新しい商品を作成する
-   - `title`: 商品名（必須）
-   - `body_html`: 商品の説明（HTML形式）
-   - `vendor`: ベンダー名
-   - `product_type`: 商品タイプ
-   - `tags`: タグ（カンマ区切り）
-   - `status`: ステータス（active/draft/archived）
-   - `variants`: バリエーション
-   - `options`: オプション
-   - `images`: 画像
+3. **create_product**: Create a new product
+   - `title`: Product name (required)
+   - `body_html`: Product description (HTML format)
+   - `vendor`: Vendor name
+   - `product_type`: Product type
+   - `tags`: Tags (comma-separated)
+   - `status`: Status (active/draft/archived)
+   - `variants`: Variants
+   - `options`: Options
+   - `images`: Images
 
-4. **update_product**: 商品を更新する
-   - `product_id`: 商品ID（必須）
-   - `title`: 商品名
-   - `body_html`: 商品の説明（HTML形式）
-   - `vendor`: ベンダー名
-   - `product_type`: 商品タイプ
-   - `tags`: タグ（カンマ区切り）
-   - `status`: ステータス（active/draft/archived）
-   - `variants`: バリエーション
-   - `options`: オプション
-   - `images`: 画像
+4. **update_product**: Update a product
+   - `product_id`: Product ID (required)
+   - `title`: Product name
+   - `body_html`: Product description (HTML format)
+   - `vendor`: Vendor name
+   - `product_type`: Product type
+   - `tags`: Tags (comma-separated)
+   - `status`: Status (active/draft/archived)
+   - `variants`: Variants
+   - `options`: Options
+   - `images`: Images
 
-5. **delete_product**: 商品を削除する
-   - `product_id`: 商品ID（必須）
+5. **delete_product**: Delete a product
+   - `product_id`: Product ID (required)
 
-## 設定
+## Configuration
 
-### 必要な環境変数
+### Required Environment Variables
 
-このサーバーを使用するには、以下の環境変数を設定する必要があります：
+To use this server, you need to set the following environment variables:
 
-- `SHOPIFY_SHOP_URL`: ShopifyストアのURL（例: mystore.myshopify.com）
-- `SHOPIFY_API_KEY`: Shopify Admin APIのAPIキー
-- `SHOPIFY_API_PASSWORD`: Shopify Admin APIのAPIパスワード（Secret）
-- `SHOPIFY_API_VERSION`: Shopify APIのバージョン（デフォルト: 2023-10）
+- `SHOPIFY_SHOP_URL`: Shopify store URL (e.g., mystore.myshopify.com)
+- `SHOPIFY_API_KEY`: Shopify Admin API key
+- `SHOPIFY_API_PASSWORD`: Shopify Admin API password (Secret)
+- `SHOPIFY_API_VERSION`: Shopify API version (default: 2023-10)
 
-### Claude Desktopでの設定
+### Claude Desktop Configuration
 
-Claude Desktopで使用する場合は、以下の設定をclaude_desktop_config.jsonに追加します：
+To use with Claude Desktop, add the following configuration to claude_desktop_config.json:
 
 #### macOS
-設定ファイルの場所: `~/Library/Application Support/Claude/claude_desktop_config.json`
+Configuration file location: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ```json
 "mcpServers": {
@@ -78,81 +78,81 @@ Claude Desktopで使用する場合は、以下の設定をclaude_desktop_config
 }
 ```
 
-## 使用方法
+## Usage
 
-Claude Desktopでこのサーバーを使用するには、以下のようにツールを呼び出します：
+To use this server with Claude Desktop, call the tools as follows:
 
-### 商品一覧の取得
-
-```
-商品一覧を取得してください。
-```
-
-### 商品の詳細情報の取得
+### Get Product List
 
 ```
-商品ID 1234567890の詳細情報を取得してください。
+Please get the product list.
 ```
 
-### 新しい商品の作成
+### Get Detailed Product Information
 
 ```
-以下の情報で新しい商品を作成してください：
-- 商品名: サンプル商品
-- 説明: これはサンプル商品です。
-- 価格: 1000円
+Please get the detailed information for product ID 1234567890.
 ```
 
-### 商品の更新
+### Create a New Product
 
 ```
-商品ID 1234567890を以下の情報で更新してください：
-- 商品名: 更新後の商品名
-- 価格: 2000円
+Please create a new product with the following information:
+- Product name: Sample Product
+- Description: This is a sample product.
+- Price: $1000
 ```
 
-### 商品の削除
+### Update a Product
 
 ```
-商品ID 1234567890を削除してください。
+Please update product ID 1234567890 with the following information:
+- Product name: Updated Product Name
+- Price: $2000
 ```
 
-## 開発
+### Delete a Product
 
-### 依存関係のインストール
+```
+Please delete product ID 1234567890.
+```
+
+## Development
+
+### Install Dependencies
 
 ```bash
 cd shopify-py-mcp
 uv sync --dev --all-extras
 ```
 
-### デバッグ
+### Debugging
 
-MCP Inspectorを使用してデバッグすることができます：
+You can debug using MCP Inspector:
 
 ```bash
 npx @modelcontextprotocol/inspector uv --directory /your_path/shopify-py-mcp run shopify-py-mcp
 ```
 
-### ビルドと公開
+### Build and Publish
 
-パッケージを配布用に準備するには：
+To prepare the package for distribution:
 
-1. 依存関係を同期してロックファイルを更新：
+1. Synchronize dependencies and update the lock file:
 ```bash
 uv sync
 ```
 
-2. パッケージのビルド：
+2. Build the package:
 ```bash
 uv build
 ```
 
-3. PyPIに公開：
+3. Publish to PyPI:
 ```bash
 uv publish
 ```
 
-注意: PyPIの認証情報を環境変数またはコマンドフラグで設定する必要があります：
-- トークン: `--token` または `UV_PUBLISH_TOKEN`
-- またはユーザー名/パスワード: `--username`/`UV_PUBLISH_USERNAME` と `--password`/`UV_PUBLISH_PASSWORD`
+Note: You need to set PyPI authentication credentials via environment variables or command flags:
+- Token: `--token` or `UV_PUBLISH_TOKEN`
+- Or username/password: `--username`/`UV_PUBLISH_USERNAME` and `--password`/`UV_PUBLISH_PASSWORD`
