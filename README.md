@@ -72,7 +72,8 @@ Configuration file location: `~/Library/Application Support/Claude/claude_deskto
       "SHOPIFY_SHOP_URL": "your-store.myshopify.com",
       "SHOPIFY_API_KEY": "your-api-key",
       "SHOPIFY_API_PASSWORD": "your-api-password",
-      "SHOPIFY_API_VERSION": "2023-10"
+      "SHOPIFY_API_VERSION": "2025-01",
+      "SHOPIFY_ADMIN_ACCESS_TOKEN": "admin-api-access-token"
     }
   }
 }
