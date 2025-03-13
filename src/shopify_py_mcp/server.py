@@ -10,17 +10,21 @@ from mcp.server import NotificationOptions, Server
 from pydantic import AnyUrl
 import mcp.server.stdio
 
-# Shopify API設定
+# Shopify API settings
 SHOP_URL = os.environ.get("SHOPIFY_SHOP_URL", "")
 API_KEY = os.environ.get("SHOPIFY_API_KEY", "")
 API_PASSWORD = os.environ.get("SHOPIFY_API_PASSWORD", "")
 API_VERSION = os.environ.get("SHOPIFY_API_VERSION", "2025-01")
+API_SECRET = os.environ.get("SHOPIFY_API_SECRET", "")
+ADMIN_ACCESS_TOKEN = os.environ.get("SHOPIFY_ADMIN_ACCESS_TOKEN", "")
 
 
-# Shopify APIの初期化
+# Initialize Shopify API
 def initialize_shopify_api():
-    shop_url = f"https://{API_KEY}:{API_PASSWORD}@{SHOP_URL}/admin/api/{API_VERSION}"
-    shopify.ShopifyResource.set_site(shop_url)
+    shopify.Session.setup(api_key=API_KEY, secret=API_SECRET)
+    shop_url = f"https://{SHOP_URL}"
+    session = shopify.Session(shop_url, API_VERSION, ADMIN_ACCESS_TOKEN)
+    shopify.ShopifyResource.activate_session(session)
 
 
 server = Server("shopify-py-mcp")
@@ -28,16 +32,16 @@ server = Server("shopify-py-mcp")
 
 def get_all_shopify_products(total_limit=None, per_page_limit=250):
     """
-    ShopifyAPIライブラリを使用して複数ページにわたる商品一覧を取得する関数
+    Function to retrieve product listings across multiple pages using the Shopify API library
 
     Parameters:
-    total_limit (int): 取得する総商品数（Noneの場合はすべての商品を取得）
-    per_page_limit (int): 1回のリクエストあたりの商品数（最大250）
+    total_limit (int): Total number of products to retrieve (None to retrieve all products)
+    per_page_limit (int): Number of products per request (maximum 250)
 
     Returns:
-    list: 商品のリスト
+    list: List of products
     """
-    # 1ページあたりの上限を250に制限
+    # Limit per page to 250
     per_page_limit = min(per_page_limit, 250)
 
     all_products = []
@@ -45,20 +49,20 @@ def get_all_shopify_products(total_limit=None, per_page_limit=250):
 
     try:
         while True:
-            # 既に十分な商品が取得されているか確認
+            # Check if enough products have already been retrieved
             if total_limit is not None and len(all_products) >= total_limit:
                 break
 
-            # 残りの取得数を計算
+            # Calculate remaining number to retrieve
             current_limit = per_page_limit
             if total_limit is not None:
                 current_limit = min(per_page_limit, total_limit - len(all_products))
                 if current_limit <= 0:
                     break
 
-            # 商品一覧の取得
+            # Retrieve product list
             if next_page_url:
-                # next_page_urlからpage_infoを抽出
+                # Extract page_info from next_page_url
                 page_info = extract_page_info(next_page_url)
                 products = shopify.Product.find(
                     limit=current_limit, page_info=page_info
@@ -66,29 +70,29 @@ def get_all_shopify_products(total_limit=None, per_page_limit=250):
             else:
                 products = shopify.Product.find(limit=current_limit)
 
-            # 結果が空の場合は終了
+            # End if results are empty
             if not products:
                 break
 
-            # 取得した商品を追加
+            # Add retrieved products
             all_products.extend(products)
 
-            # レスポンスヘッダーからページネーション情報を取得
+            # Get pagination information from response headers
             response_headers = shopify.ShopifyResource.connection.response.headers
             link_header = response_headers.get("Link", "")
 
-            # 次のページURLを抽出
+            # Extract next page URL
             next_page_url = extract_next_page_url(link_header)
             if not next_page_url:
                 break
 
-            # レート制限を避けるために少し待機
+            # Wait a bit to avoid rate limits
             time.sleep(0.5)
 
     except Exception as e:
-        print(f"エラーが発生しました: {e}")
+        print(f"An error occurred: {e}")
 
-    # total_limitが指定されている場合、指定した数だけ返す
+    # If total_limit is specified, return only that number
     if total_limit is not None:
         return all_products[:total_limit]
 
@@ -97,13 +101,13 @@ def get_all_shopify_products(total_limit=None, per_page_limit=250):
 
 def extract_next_page_url(link_header):
     """
-    Linkヘッダーから次のページのURLを抽出する
+    Extract the URL of the next page from the Link header
 
     Parameters:
-    link_header (str): レスポンスのLinkヘッダー
+    link_header (str): Link header from the response
 
     Returns:
-    str: 次のページのURL（存在しない場合はNone）
+    str: URL of the next page (None if it doesn't exist)
     """
     if not link_header:
         return None
@@ -125,13 +129,13 @@ def extract_next_page_url(link_header):
 
 def extract_page_info(next_page_url):
     """
-    URLからpage_infoパラメータを抽出する
+    Extract the page_info parameter from a URL
 
     Parameters:
-    next_page_url (str): 次のページのURL
+    next_page_url (str): URL of the next page
 
     Returns:
-    str: page_infoパラメータ
+    str: page_info parameter
     """
     import urllib.parse
 
@@ -147,19 +151,19 @@ def extract_page_info(next_page_url):
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
     """
-    利用可能なツールのリストを返します。
-    各ツールはJSON Schemaを使用して引数を指定します。
+    Returns a list of available tools.
+    Each tool specifies its arguments using JSON Schema.
     """
     return [
         types.Tool(
             name="list_products",
-            description="商品一覧を取得する",
+            description="Get product list",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "limit": {
                         "type": "number",
-                        "description": "取得する商品数（最大250）",
+                        "description": "Number of products to retrieve (maximum 250)",
                         "minimum": 1,
                         "maximum": 250,
                         "default": 50,
@@ -169,58 +173,58 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="get_product",
-            description="商品の詳細情報を取得する",
+            description="Get detailed product information",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "product_id": {"type": "number", "description": "商品ID"}
+                    "product_id": {"type": "number", "description": "Product ID"}
                 },
                 "required": ["product_id"],
             },
         ),
         types.Tool(
             name="create_product",
-            description="新しい商品を作成する",
+            description="Create a new product",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "title": {"type": "string", "description": "商品名"},
+                    "title": {"type": "string", "description": "Product name"},
                     "body_html": {
                         "type": "string",
-                        "description": "商品の説明（HTML形式）",
+                        "description": "Product description (HTML format)",
                     },
-                    "vendor": {"type": "string", "description": "ベンダー名"},
-                    "product_type": {"type": "string", "description": "商品タイプ"},
-                    "tags": {"type": "string", "description": "タグ（カンマ区切り）"},
+                    "vendor": {"type": "string", "description": "Vendor name"},
+                    "product_type": {"type": "string", "description": "Product type"},
+                    "tags": {"type": "string", "description": "Tags (comma-separated)"},
                     "status": {
                         "type": "string",
-                        "description": "ステータス",
+                        "description": "Status",
                         "enum": ["active", "draft", "archived"],
                         "default": "active",
                     },
                     "variants": {
                         "type": "array",
-                        "description": "バリエーション",
+                        "description": "Variants",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "price": {"type": "string", "description": "価格"},
+                                "price": {"type": "string", "description": "Price"},
                                 "sku": {"type": "string", "description": "SKU"},
                                 "inventory_quantity": {
                                     "type": "number",
-                                    "description": "在庫数",
+                                    "description": "Inventory quantity",
                                 },
                                 "option1": {
                                     "type": "string",
-                                    "description": "オプション1の値",
+                                    "description": "Option 1 value",
                                 },
                                 "option2": {
                                     "type": "string",
-                                    "description": "オプション2の値",
+                                    "description": "Option 2 value",
                                 },
                                 "option3": {
                                     "type": "string",
-                                    "description": "オプション3の値",
+                                    "description": "Option 3 value",
                                 },
                             },
                             "required": ["price"],
@@ -228,21 +232,21 @@ async def handle_list_tools() -> list[types.Tool]:
                     },
                     "options": {
                         "type": "array",
-                        "description": "オプション",
+                        "description": "Options",
                         "items": {
                             "type": "object",
                             "properties": {
                                 "name": {
                                     "type": "string",
-                                    "description": "オプション名",
+                                    "description": "Option name",
                                 },
                                 "position": {
                                     "position": "number",
-                                    "description": "オプション順番",
+                                    "description": "Option order",
                                 },
                                 "values": {
                                     "type": "array",
-                                    "description": "オプション値",
+                                    "description": "Option values",
                                     "items": {"type": "string"},
                                 },
                             },
@@ -251,14 +255,14 @@ async def handle_list_tools() -> list[types.Tool]:
                     },
                     "images": {
                         "type": "array",
-                        "description": "画像",
+                        "description": "Images",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "src": {"type": "string", "description": "画像URL"},
+                                "src": {"type": "string", "description": "Image URL"},
                                 "alt": {
                                     "type": "string",
-                                    "description": "代替テキスト",
+                                    "description": "Alternative text",
                                 },
                             },
                             "required": ["src"],
@@ -270,73 +274,73 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="update_product",
-            description="商品を更新する",
+            description="Update a product",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "product_id": {"type": "number", "description": "商品ID"},
-                    "title": {"type": "string", "description": "商品名"},
+                    "product_id": {"type": "number", "description": "Product ID"},
+                    "title": {"type": "string", "description": "Product name"},
                     "body_html": {
                         "type": "string",
-                        "description": "商品の説明（HTML形式）",
+                        "description": "Product description (HTML format)",
                     },
-                    "vendor": {"type": "string", "description": "ベンダー名"},
-                    "product_type": {"type": "string", "description": "商品タイプ"},
-                    "tags": {"type": "string", "description": "タグ（カンマ区切り）"},
+                    "vendor": {"type": "string", "description": "Vendor name"},
+                    "product_type": {"type": "string", "description": "Product type"},
+                    "tags": {"type": "string", "description": "Tags (comma-separated)"},
                     "status": {
                         "type": "string",
-                        "description": "ステータス",
+                        "description": "Status",
                         "enum": ["active", "draft", "archived"],
                     },
                     "variants": {
                         "type": "array",
-                        "description": "バリエーション",
+                        "description": "Variants",
                         "items": {
                             "type": "object",
                             "properties": {
                                 "id": {
                                     "type": "number",
-                                    "description": "バリエーションID",
+                                    "description": "Variant ID",
                                 },
-                                "price": {"type": "string", "description": "価格"},
+                                "price": {"type": "string", "description": "Price"},
                                 "sku": {"type": "string", "description": "SKU"},
                                 "inventory_quantity": {
                                     "type": "number",
-                                    "description": "在庫数",
+                                    "description": "Inventory quantity",
                                 },
                                 "option1": {
                                     "type": "string",
-                                    "description": "オプション1の値",
+                                    "description": "Option 1 value",
                                 },
                                 "option2": {
                                     "type": "string",
-                                    "description": "オプション2の値",
+                                    "description": "Option 2 value",
                                 },
                                 "option3": {
                                     "type": "string",
-                                    "description": "オプション3の値",
+                                    "description": "Option 3 value",
                                 },
                             },
                         },
                     },
                     "options": {
                         "type": "array",
-                        "description": "オプション",
+                        "description": "Options",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "id": {"type": "number", "description": "オプションID"},
+                                "id": {"type": "number", "description": "Option ID"},
                                 "name": {
                                     "type": "string",
-                                    "description": "オプション名",
+                                    "description": "Option name",
                                 },
                                 "position": {
                                     "position": "number",
-                                    "description": "オプション順番",
+                                    "description": "Option order",
                                 },
                                 "values": {
                                     "type": "array",
-                                    "description": "オプション値",
+                                    "description": "Option values",
                                     "items": {"type": "string"},
                                 },
                             },
@@ -345,15 +349,15 @@ async def handle_list_tools() -> list[types.Tool]:
                     },
                     "images": {
                         "type": "array",
-                        "description": "画像",
+                        "description": "Images",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "id": {"type": "number", "description": "画像ID"},
-                                "src": {"type": "string", "description": "画像URL"},
+                                "id": {"type": "number", "description": "Image ID"},
+                                "src": {"type": "string", "description": "Image URL"},
                                 "alt": {
                                     "type": "string",
-                                    "description": "代替テキスト",
+                                    "description": "Alternative text",
                                 },
                             },
                             "required": ["src"],
@@ -365,11 +369,11 @@ async def handle_list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="delete_product",
-            description="商品を削除する",
+            description="Delete a product",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "product_id": {"type": "number", "description": "商品ID"}
+                    "product_id": {"type": "number", "description": "Product ID"}
                 },
                 "required": ["product_id"],
             },
@@ -382,7 +386,7 @@ async def handle_call_tool(
     name: str, arguments: dict | None
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
     """
-    ツール実行リクエストを処理します。
+    Processes tool execution requests.
     """
     try:
         initialize_shopify_api()
@@ -403,16 +407,16 @@ async def handle_call_tool(
         return [
             types.TextContent(
                 type="text",
-                text=f"エラーが発生しました: {str(e)}",
+                text=f"An error occurred: {str(e)}",
             )
         ]
 
 
 async def handle_list_products(arguments: dict) -> list[types.TextContent]:
-    """商品一覧を取得する"""
+    """Get product list"""
     limit = int(arguments.get("limit", 50))
     products = get_all_shopify_products(
-        total_limit=limit, per_page_limit=250  # 1回のリクエストで最大250件取得
+        total_limit=limit, per_page_limit=250  # Retrieve up to 250 products per request
     )
 
     result = []
@@ -440,14 +444,14 @@ async def handle_list_products(arguments: dict) -> list[types.TextContent]:
 
 
 async def handle_get_product(arguments: dict) -> list[types.TextContent]:
-    """商品の詳細情報を取得する"""
+    """Get detailed product information"""
     product_id = arguments.get("product_id")
     if not product_id:
         raise ValueError("product_id is required")
 
     product = shopify.Product.find(product_id)
 
-    # 商品情報を整形
+    # Format product information
     result = {
         "id": product.id,
         "title": product.title,
@@ -463,7 +467,7 @@ async def handle_get_product(arguments: dict) -> list[types.TextContent]:
         "images": [],
     }
 
-    # バリエーション情報
+    # Variant information
     for variant in product.variants:
         result["variants"].append(
             {
@@ -478,13 +482,13 @@ async def handle_get_product(arguments: dict) -> list[types.TextContent]:
             }
         )
 
-    # オプション情報
+    # Option information
     for option in product.options:
         result["options"].append(
             {"id": option.id, "name": option.name, "values": option.values}
         )
 
-    # 画像情報
+    # Image information
     for image in product.images:
         result["images"].append({"id": image.id, "src": image.src, "alt": image.alt})
 
@@ -497,17 +501,17 @@ async def handle_get_product(arguments: dict) -> list[types.TextContent]:
 
 
 async def handle_create_product(arguments: dict) -> list[types.TextContent]:
-    """新しい商品を作成する"""
-    # 必須パラメータのチェック
+    """Create a new product"""
+    # Check required parameters
     title = arguments.get("title")
     if not title:
         raise ValueError("title is required")
 
-    # 商品オブジェクトの作成
+    # Create product object
     product = shopify.Product()
     product.title = title
 
-    # オプションパラメータの設定
+    # Set optional parameters
     if "body_html" in arguments:
         product.body_html = arguments["body_html"]
     if "vendor" in arguments:
@@ -519,7 +523,7 @@ async def handle_create_product(arguments: dict) -> list[types.TextContent]:
     if "status" in arguments:
         product.status = arguments["status"]
 
-    # オプションの設定
+    # Set options
     if "options" in arguments and arguments["options"]:
         options = []
         for option_data in arguments["options"]:
@@ -530,7 +534,7 @@ async def handle_create_product(arguments: dict) -> list[types.TextContent]:
             options.append(option)
         product.options = options
 
-    # バリエーションの設定
+    # Set variants
     if "variants" in arguments and arguments["variants"]:
         variants = []
         for variant_data in arguments["variants"]:
@@ -550,7 +554,7 @@ async def handle_create_product(arguments: dict) -> list[types.TextContent]:
             variants.append(variant)
         product.variants = variants
 
-    # 画像の設定
+    # Set images
     if "images" in arguments and arguments["images"]:
         for image_data in arguments["images"]:
             image = shopify.Image()
@@ -559,7 +563,7 @@ async def handle_create_product(arguments: dict) -> list[types.TextContent]:
                 image.alt = image_data["alt"]
             product.images.append(image)
 
-    # 商品の保存
+    # Save product
     product.save()
 
     return [
@@ -569,7 +573,7 @@ async def handle_create_product(arguments: dict) -> list[types.TextContent]:
                 {
                     "success": True,
                     "product_id": product.id,
-                    "message": f"商品「{product.title}」が作成されました",
+                    "message": f"Product '{product.title}' has been created",
                 },
                 indent=2,
                 ensure_ascii=False,
@@ -579,16 +583,16 @@ async def handle_create_product(arguments: dict) -> list[types.TextContent]:
 
 
 async def handle_update_product(arguments: dict) -> list[types.TextContent]:
-    """商品を更新する"""
-    # 必須パラメータのチェック
+    """Update a product"""
+    # Check required parameters
     product_id = arguments.get("product_id")
     if not product_id:
         raise ValueError("product_id is required")
 
-    # 商品の取得
+    # Get product
     product = shopify.Product.find(product_id)
 
-    # 商品情報の更新
+    # Update product information
     if "title" in arguments:
         product.title = arguments["title"]
     if "body_html" in arguments:
@@ -602,10 +606,10 @@ async def handle_update_product(arguments: dict) -> list[types.TextContent]:
     if "status" in arguments:
         product.status = arguments["status"]
 
-    # バリエーションの更新
+    # Update variants
     if "variants" in arguments and arguments["variants"]:
         for variant_data in arguments["variants"]:
-            # バリエーションIDがある場合は既存のバリエーションを更新
+            # Update existing variant if variant ID exists
             if "id" in variant_data:
                 for variant in product.variants:
                     if variant.id == variant_data["id"]:
@@ -623,7 +627,7 @@ async def handle_update_product(arguments: dict) -> list[types.TextContent]:
                             variant.option2 = variant_data["option2"]
                         if "option3" in variant_data:
                             variant.option3 = variant_data["option3"]
-            # バリエーションIDがない場合は新しいバリエーションを追加
+            # Add new variant if variant ID doesn't exist
             else:
                 variant = shopify.Variant()
                 variant.product_id = product.id
@@ -641,16 +645,16 @@ async def handle_update_product(arguments: dict) -> list[types.TextContent]:
                     variant.option3 = variant_data["option3"]
                 product.variants.append(variant)
 
-    # オプションの更新
+    # Update options
     if "options" in arguments and arguments["options"]:
         for option_data in arguments["options"]:
-            # オプションIDがある場合は既存のオプションを更新
+            # Update existing option if option ID exists
             if "id" in option_data:
                 for option in product.options:
                     if option.id == option_data["id"]:
                         option.name = option_data["name"]
                         option.values = option_data["values"]
-            # オプションIDがない場合は新しいオプションを追加
+            # Add new option if option ID doesn't exist
             else:
                 option = shopify.Option()
                 option.product_id = product.id
@@ -658,17 +662,17 @@ async def handle_update_product(arguments: dict) -> list[types.TextContent]:
                 option.values = option_data["values"]
                 product.options.append(option)
 
-    # 画像の更新
+    # Update images
     if "images" in arguments and arguments["images"]:
         for image_data in arguments["images"]:
-            # 画像IDがある場合は既存の画像を更新
+            # Update existing image if image ID exists
             if "id" in image_data:
                 for image in product.images:
                     if image.id == image_data["id"]:
                         image.src = image_data["src"]
                         if "alt" in image_data:
                             image.alt = image_data["alt"]
-            # 画像IDがない場合は新しい画像を追加
+            # Add new image if image ID doesn't exist
             else:
                 image = shopify.Image()
                 image.product_id = product.id
@@ -677,7 +681,7 @@ async def handle_update_product(arguments: dict) -> list[types.TextContent]:
                     image.alt = image_data["alt"]
                 product.images.append(image)
 
-    # 商品の保存
+    # Save product
     product.save()
 
     return [
@@ -687,7 +691,7 @@ async def handle_update_product(arguments: dict) -> list[types.TextContent]:
                 {
                     "success": True,
                     "product_id": product.id,
-                    "message": f"商品「{product.title}」が更新されました",
+                    "message": f"Product '{product.title}' has been updated",
                 },
                 indent=2,
                 ensure_ascii=False,
@@ -697,19 +701,19 @@ async def handle_update_product(arguments: dict) -> list[types.TextContent]:
 
 
 async def handle_delete_product(arguments: dict) -> list[types.TextContent]:
-    """商品を削除する"""
-    # 必須パラメータのチェック
+    """Delete a product"""
+    # Check required parameters
     product_id = arguments.get("product_id")
     if not product_id:
         raise ValueError("product_id is required")
 
-    # 商品の取得
+    # Get product
     product = shopify.Product.find(product_id)
 
-    # 商品名を保存
+    # Save product name
     product_title = product.title
 
-    # 商品の削除
+    # Delete product
     product.destroy()
 
     return [
@@ -718,7 +722,7 @@ async def handle_delete_product(arguments: dict) -> list[types.TextContent]:
             text=json.dumps(
                 {
                     "success": True,
-                    "message": f"商品「{product_title}」が削除されました",
+                    "message": f"Product '{product_title}' has been deleted",
                 },
                 indent=2,
                 ensure_ascii=False,
