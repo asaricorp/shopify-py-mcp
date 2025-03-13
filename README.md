@@ -95,6 +95,12 @@ To deploy this server to Railway for use with web-based MCP clients:
    - `SHOPIFY_ADMIN_ACCESS_TOKEN`
 5. Deploy your application
 
+The repository includes the following files for Railway deployment:
+- `Procfile`: Tells Railway how to run the application
+- `setup.py`: Ensures the package is installed properly
+- `requirements.txt`: Lists all dependencies
+- `runtime.txt`: Specifies the Python version
+
 Once deployed, Railway will provide you with a URL for your service. Use this URL to configure your web-based MCP clients:
 
 - MCP List Tools Endpoint: `https://your-railway-app-url.railway.app/mcp/list_tools`
@@ -111,6 +117,15 @@ curl https://your-railway-app-url.railway.app/
 # Test the list_tools endpoint
 curl -X POST https://your-railway-app-url.railway.app/mcp/list_tools
 ```
+
+### Troubleshooting Railway Deployment
+
+If you encounter issues with the deployment:
+
+1. Check the Railway logs for error messages
+2. Ensure all environment variables are set correctly
+3. Verify that the package is being installed properly by checking the build logs
+4. Try redeploying the application
 
 ## Usage
 

@@ -1,1 +1,1 @@
-web: python -m shopify_py_mcp
+web: pip install -e . && python railway_test.py && python -m shopify_py_mcp
