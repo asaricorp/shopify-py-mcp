@@ -49,7 +49,8 @@ To use this server, you need to set the following environment variables:
 - `SHOPIFY_SHOP_URL`: Shopify store URL (e.g., mystore.myshopify.com)
 - `SHOPIFY_API_KEY`: Shopify Admin API key
 - `SHOPIFY_API_PASSWORD`: Shopify Admin API password (Secret)
-- `SHOPIFY_API_VERSION`: Shopify API version (default: 2023-10)
+- `SHOPIFY_API_VERSION`: Shopify API version (default: 2025-01)
+- `SHOPIFY_ADMIN_ACCESS_TOKEN`: Shopify Admin API access token
 
 ### Claude Desktop Configuration
 
@@ -77,6 +78,38 @@ Configuration file location: `~/Library/Application Support/Claude/claude_deskto
     }
   }
 }
+```
+
+## Railway Deployment
+
+To deploy this server to Railway for use with web-based MCP clients:
+
+1. Fork or clone this repository to your GitHub account
+2. Sign up for a [Railway account](https://railway.app/)
+3. Create a new project in Railway from your GitHub repository
+4. Add the required environment variables in the Railway dashboard:
+   - `SHOPIFY_SHOP_URL`
+   - `SHOPIFY_API_KEY`
+   - `SHOPIFY_API_PASSWORD`
+   - `SHOPIFY_API_VERSION`
+   - `SHOPIFY_ADMIN_ACCESS_TOKEN`
+5. Deploy your application
+
+Once deployed, Railway will provide you with a URL for your service. Use this URL to configure your web-based MCP clients:
+
+- MCP List Tools Endpoint: `https://your-railway-app-url.railway.app/mcp/list_tools`
+- MCP Call Tool Endpoint: `https://your-railway-app-url.railway.app/mcp/call_tool`
+
+### Testing Your Deployment
+
+To verify your deployment is working:
+
+```bash
+# Test the root endpoint
+curl https://your-railway-app-url.railway.app/
+
+# Test the list_tools endpoint
+curl -X POST https://your-railway-app-url.railway.app/mcp/list_tools
 ```
 
 ## Usage
